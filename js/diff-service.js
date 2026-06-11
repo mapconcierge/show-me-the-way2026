@@ -6,11 +6,17 @@ const MAX_STORED_ENTRIES = 10;
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 const CULL_INTERVAL_MS = 60 * 1000; // 1 minute
 const MAX_RETRIES = 2;
+const WATCHDOG_INTERVAL_MS = 30 * 1000;
+const WATCHDOG_STALL_MS = 3 * 60 * 1000;
 
 class DiffService {
     constructor() {
         this.cullIntervalId = null;
+        this.watchdogIntervalId = null;
         this.streamHandle = null;
+        this.onData = null;
+        this.bbox = null;
+        this.lastStreamActivity = null;
         this.db = null;
         this.memoryCache = []; // In-memory cache for sync access
     }
@@ -94,13 +100,34 @@ class DiffService {
     }
 
     start(onData, bbox = null) {
+        // Cancel any existing stream first so repeated start() calls
+        // never leak duplicate streams (and duplicate API requests)
+        if (this.streamHandle) {
+            this.streamHandle.cancel();
+            this.streamHandle = null;
+        }
+
+        this.onData = onData;
+        this.bbox = bbox;
+        this.lastStreamActivity = Date.now();
+
         // Start periodic culling
         if (!this.cullIntervalId) {
             this.cullIntervalId = setInterval(() => this.cull(), CULL_INTERVAL_MS);
         }
 
+        // Watchdog: osm-stream dies silently if its initial status request
+        // fails (it has no error handler there), so restart when no
+        // callback has fired for a while
+        if (!this.watchdogIntervalId) {
+            this.watchdogIntervalId = setInterval(() => this.checkStalled(), WATCHDOG_INTERVAL_MS);
+        }
+
         // Start osm-stream
         this.streamHandle = osmStream.runFn((err, data) => {
+            // Any callback (even an error) means the stream loop is alive
+            this.lastStreamActivity = Date.now();
+
             if (err) {
                 console.warn('[DiffService] Stream error, waiting for next diff:', err.message || err);
                 return;
@@ -110,7 +137,7 @@ class DiffService {
             this.add(data);
 
             // Pass to callback
-            onData(data);
+            this.onData(data);
         }, null, null, bbox, MAX_RETRIES);
     }
 
@@ -120,9 +147,28 @@ class DiffService {
             this.cullIntervalId = null;
         }
 
+        if (this.watchdogIntervalId) {
+            clearInterval(this.watchdogIntervalId);
+            this.watchdogIntervalId = null;
+        }
+
         if (this.streamHandle) {
             this.streamHandle.cancel();
             this.streamHandle = null;
+        }
+    }
+
+    /**
+     * Restart the stream if it produced no callbacks for too long
+     * (e.g. the initial status request failed, or the server went away)
+     */
+    checkStalled() {
+        if (!this.streamHandle || !this.onData) return;
+
+        const stalledFor = Date.now() - this.lastStreamActivity;
+        if (stalledFor > WATCHDOG_STALL_MS) {
+            console.warn(`[DiffService] No stream activity for ${Math.round(stalledFor / 1000)}s - restarting stream`);
+            this.start(this.onData, this.bbox);
         }
     }
 
