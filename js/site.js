@@ -98,6 +98,33 @@ function init(windowLocationObj) {
         diffService.start(onDiffData, requestingBbox);
     });
 
+    // Periodically restart the diff stream: the stream can silently stall
+    // after repeated errors, so a full stop/start keeps fresh data flowing
+    let reloadTimerId = null;
+
+    const restartStream = () => {
+        console.log('[Reload] Restarting diff stream');
+        diffService.stop();
+        diffService.start(onDiffData, requestingBbox);
+        // Restart processing loop if it stalled while the queue was empty
+        if (!isProcessing) {
+            processNextChange();
+        }
+    };
+
+    const scheduleReload = () => {
+        if (reloadTimerId) {
+            clearTimeout(reloadTimerId);
+            reloadTimerId = null;
+        }
+        reloadTimerId = setTimeout(() => {
+            if (!isPaused) restartStream();
+            scheduleReload();
+        }, context.reloadInterval * 60 * 1000);
+    };
+
+    scheduleReload();
+
     // Pause/resume based on page visibility
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -119,7 +146,9 @@ function init(windowLocationObj) {
     const maps = new Maps(context, bbox);
 
     // Setup the sidebar
-    const sidebar = new Sidebar(hashParams, windowLocationObj, context);
+    const sidebar = new Sidebar(hashParams, windowLocationObj, context, {
+        onReloadIntervalChange: scheduleReload
+    });
     sidebar.initializeEventListeners();
 
     // Prefetch configuration
@@ -323,6 +352,8 @@ function setContext(obj) {
     const context = Object.assign({}, config, obj);
     context.bounds = context.bounds.split(',');
     context.runTime = 1000 * context.runTime;
+    context.reloadInterval = Number(context.reloadInterval) >= 1
+        ? Number(context.reloadInterval) : config.reloadInterval;
     context.multi = context.multi === 'true' || context.multi === true;
     context.debug = context.debug === 'true' || context.debug === true;
 

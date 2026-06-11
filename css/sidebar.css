@@ -80,7 +80,8 @@
     border: none;
 }
 
-.sidebar input[type="text"] {
+.sidebar input[type="text"],
+.sidebar input[type="number"] {
     border: 1px solid var(--mainFontColor);
 }
 
