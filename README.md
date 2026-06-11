@@ -13,7 +13,8 @@ npm run dev
 Starts esbuild in watch mode and a local server at http://localhost:3000.
 
 This code is deployed and running here:
-https://osmlab.github.io/show-me-the-way/
+https://mapconcierge.github.io/show-me-the-way2026/
+
 
 ## Parameters
 
