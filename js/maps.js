@@ -8,62 +8,30 @@ class Maps {
         const filteredBbox = context.bounds != config.bounds;
         const defaultCenter = getRandomCity().center;
 
-        // Check if running locally
-        const isLocal = window.location.hostname === 'localhost' ||
-            window.location.hostname.startsWith('192');
-
         // Overview map always uses MapLibre demo tiles
         const overviewStyle = 'https://demotiles.maplibre.org/style.json';
 
-        let mainStyle;
-
-        if (isLocal) {
-            // Local development: use OSM tiles with dark filter
-            mainStyle = {
-                version: 8,
-                name: 'Dark Basemap',
-                sources: {
-                    'osm-tiles': {
-                        type: 'raster',
-                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                        tileSize: 256,
-                        attribution: '© OpenStreetMap contributors'
-                    }
-                },
-                layers: [{
-                    id: 'osm-tiles',
+        // Main map basemap: Esri World Imagery aerial tiles.
+        // Keyless and not domain-restricted, so it works on any host
+        // (the previous Mapbox token was locked to osmlab.github.io and
+        // returned 403 on forks). Note the {z}/{y}/{x} tile order.
+        const mainStyle = {
+            version: 8,
+            name: 'Esri World Imagery',
+            sources: {
+                'esri-imagery': {
                     type: 'raster',
-                    source: 'osm-tiles',
-                    paint: {
-                        'raster-saturation': -1,
-                        'raster-brightness-max': 0.5,
-                        'raster-contrast': 0.1
-                    }
-                }]
-            };
-        } else {
-            // Production: use Mapbox styled tiles
-            const mapboxKey = 'pk.eyJ1Ijoib3BlbnN0cmVldG1hcHVzIiwiYSI6ImNqdTM1ZWxqe'
-                + 'TBqa2MzeXBhODIxdnE2eG8ifQ.zyhAo181muDzPRdyYsqLGw';
-            
-            mainStyle = {
-                version: 8,
-                name: 'Mapbox Dark',
-                sources: {
-                    'mapbox-tiles': {
-                        type: 'raster',
-                        tiles: [`https://api.mapbox.com/styles/v1/openstreetmapus/cju35gljt1bpm1fp2z93dlyca/tiles/256/{z}/{x}/{y}?access_token=${mapboxKey}`],
-                        tileSize: 256,
-                        attribution: '<a href="https://mapbox.com/about/maps/">Terms & Conditions</a>'
-                    }
-                },
-                layers: [{
-                    id: 'mapbox-tiles',
-                    type: 'raster',
-                    source: 'mapbox-tiles'
-                }]
-            };
-        }
+                    tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                    tileSize: 256,
+                    attribution: 'Imagery © <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community'
+                }
+            },
+            layers: [{
+                id: 'esri-imagery',
+                type: 'raster',
+                source: 'esri-imagery'
+            }]
+        };
 
         // Main map for displaying updates
         this.main = new maplibregl.Map({
