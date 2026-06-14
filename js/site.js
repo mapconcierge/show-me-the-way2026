@@ -98,19 +98,19 @@ function init(windowLocationObj) {
         diffService.start(onDiffData, requestingBbox);
     });
 
-    // Periodically restart the diff stream: the stream can silently stall
-    // after repeated errors, so a full stop/start keeps fresh data flowing
+    // Periodically reload the whole page: the diff stream can silently
+    // stall after repeated errors, and a full page reload is the most
+    // reliable way to recover and re-fetch the latest edits from scratch
     let reloadTimerId = null;
     let nextReloadAt = null;
 
-    const restartStream = () => {
-        console.log('[Reload] Restarting diff stream');
+    const reloadPage = () => {
+        console.log('[Reload] Stopping playback and reloading page');
+        // Halt drawing/streaming so playback visibly stops at the reload
+        // moment, then do a full reload of the HTML document
+        isPaused = true;
         diffService.stop();
-        diffService.start(onDiffData, requestingBbox);
-        // Restart processing loop if it stalled while the queue was empty
-        if (!isProcessing) {
-            processNextChange();
-        }
+        window.location.reload();
     };
 
     const scheduleReload = () => {
@@ -122,8 +122,12 @@ function init(windowLocationObj) {
         nextReloadAt = Date.now() + intervalMs;
         updateReloadCountdown();
         reloadTimerId = setTimeout(() => {
-            if (!isPaused) restartStream();
-            scheduleReload();
+            // Don't reload a hidden tab; wait for the next interval instead
+            if (isPaused) {
+                scheduleReload();
+            } else {
+                reloadPage();
+            }
         }, intervalMs);
     };
 
