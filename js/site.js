@@ -138,10 +138,7 @@ function init(windowLocationObj) {
         if (!reloadCountdownEl || nextReloadAt === null) return;
         const remainingMs = Math.max(0, nextReloadAt - Date.now());
         const totalSeconds = Math.ceil(remainingMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const mmss = `${minutes}:${String(seconds).padStart(2, '0')}`;
-        reloadCountdownEl.textContent = `↻ reload in ${mmss} (${totalSeconds}s)`;
+        reloadCountdownEl.textContent = totalSeconds;
     }
 
     setInterval(updateReloadCountdown, 1000);
