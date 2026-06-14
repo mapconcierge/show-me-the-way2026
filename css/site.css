@@ -80,6 +80,20 @@ h1 {
     font-size: var(--smallFontSize);
 }
 
+.reload-countdown {
+    position:absolute;
+    bottom:8px;
+    left:8px;
+    z-index:501;
+    color: var(--mainFontColor);
+    font-size: var(--smallFontSize);
+    font-variant-numeric: tabular-nums;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
 
 
 .leaflet-control-attribution {

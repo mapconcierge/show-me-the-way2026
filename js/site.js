@@ -101,6 +101,7 @@ function init(windowLocationObj) {
     // Periodically restart the diff stream: the stream can silently stall
     // after repeated errors, so a full stop/start keeps fresh data flowing
     let reloadTimerId = null;
+    let nextReloadAt = null;
 
     const restartStream = () => {
         console.log('[Reload] Restarting diff stream');
@@ -117,11 +118,29 @@ function init(windowLocationObj) {
             clearTimeout(reloadTimerId);
             reloadTimerId = null;
         }
+        const intervalMs = context.reloadInterval * 60 * 1000;
+        nextReloadAt = Date.now() + intervalMs;
+        updateReloadCountdown();
         reloadTimerId = setTimeout(() => {
             if (!isPaused) restartStream();
             scheduleReload();
-        }, context.reloadInterval * 60 * 1000);
+        }, intervalMs);
     };
+
+    // Show seconds remaining until the next stream reload (bottom-left)
+    const reloadCountdownEl = document.getElementById('reload-countdown');
+
+    function updateReloadCountdown() {
+        if (!reloadCountdownEl || nextReloadAt === null) return;
+        const remainingMs = Math.max(0, nextReloadAt - Date.now());
+        const totalSeconds = Math.ceil(remainingMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const mmss = `${minutes}:${String(seconds).padStart(2, '0')}`;
+        reloadCountdownEl.textContent = `↻ reload in ${mmss} (${totalSeconds}s)`;
+    }
+
+    setInterval(updateReloadCountdown, 1000);
 
     scheduleReload();
 
